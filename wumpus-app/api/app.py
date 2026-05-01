@@ -62,7 +62,7 @@ class KnowledgeBase:
             clauses = clauses.union(new)
 
 
-app = Flask(__name__, template_folder='.')
+app = Flask(__name__)
 
 game_state = {}
 
