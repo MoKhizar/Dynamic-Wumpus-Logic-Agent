@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Wumpus Agent</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #1e1e2e; color: white; }
+        .controls { margin: 20px; padding: 15px; background: #282a36; border-radius: 8px; display: inline-block; }
+        input { width: 50px; padding: 5px; margin: 0 10px; }
+        button { padding: 8px 15px; cursor: pointer; background: #6272a4; color: white; border: none; border-radius: 4px; font-weight: bold;}
+        button:hover { background: #50fa7b; color: black; }
+        
+        .dashboard { margin: 20px auto; width: 60%; display: flex; justify-content: space-between; background: #44475a; padding: 15px; border-radius: 8px; }
+        .metric { font-size: 1.2em; font-weight: bold; }
+        .percepts { color: #ffb86c; }
+        .steps { color: #8be9fd; }
+
+        #grid { display: grid; gap: 5px; justify-content: center; margin: 20px auto; }
+        .cell { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.5em; border-radius: 6px; }
+        
+        
+        .unknown { background-color: #6272a4; } 
+        .safe { background-color: #50fa7b; color: #282a36; } 
+        .visited { background-color: #8be9fd; color: #282a36; } 
+        .hazard { background-color: #ff5555; color: white; }
+        .agent { border: 4px solid #f1fa8c; } 
+    </style>
+</head>
+<body>
+
+    <h1>Propositional Logic Wumpus Agent</h1>
+    
+    <div class="controls">
+        <label>Rows: <input type="number" id="rows" value="5" min="3" max="10"></label>
+        <label>Cols: <input type="number" id="cols" value="5" min="3" max="10"></label>
+        <button onclick="startGame()">Start New Environment</button>
+        <button onclick="stepAgent()" style="margin-left: 20px; background: #ff79c6; color: black;">Move Agent</button>
+    </div>
+
+    <div class="dashboard">
+        <div class="metric steps">Inference Steps (Resolution): <span id="steps-val">0</span></div>
+        <div class="metric percepts">Current Percepts: <span id="percepts-val">None</span></div>
+    </div>
+
+    <div id="grid"></div>
+
+    <script>
+        async function startGame() {
+            try {
+                const rows = document.getElementById('rows').value;
+                const cols = document.getElementById('cols').value;
+                
+                const res = await fetch('/api/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({rows: rows, cols: cols})
+                });
+                const state = await res.json();
+                renderGrid(state);
+            } catch (err) {
+                alert("Error connecting to Python backend! Please make sure app.py is running in your terminal, and you are accessing the page through http://127.0.0.1:5000");
+                console.error(err);
+            }
+        }
+
+        async function stepAgent() {
+            try {
+                const res = await fetch('/api/step', { method: 'POST' });
+                const state = await res.json();
+                
+                renderGrid(state);
+                
+                if(state.game_over) {
+                    setTimeout(() => alert("Episode Ended! Agent either has no more safe moves or hit a hazard."), 100);
+                }
+            } catch (err) {
+                alert("Error connecting to Python backend!");
+            }
+        }
+
+        function renderGrid(state) {
+            const grid = document.getElementById('grid');
+            grid.style.gridTemplateColumns = `repeat(${state.cols}, 60px)`;
+            grid.innerHTML = '';
+
+            document.getElementById('steps-val').innerText = state.inference_steps;
+            document.getElementById('percepts-val').innerText = state.percepts.join(', ') || "None";
+
+            for (let r = 0; r < state.rows; r++) {
+                for (let c = 0; c < state.cols; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell unknown'; 
+
+                   
+                    const isSafe = state.safe.some(p => p[0] === r && p[1] === c);
+                    const isVisited = state.visited.some(p => p[0] === r && p[1] === c);
+                    const isPit = state.pits.some(p => p[0] === r && p[1] === c);
+                    const isWumpus = state.wumpus && state.wumpus[0] === r && state.wumpus[1] === c;
+                    const isAgent = state.agent[0] === r && state.agent[1] === c;
+
+                    
+                    if (isVisited) { cell.classList.add('visited'); cell.classList.remove('unknown'); }
+                    else if (isSafe) { cell.classList.add('safe'); cell.classList.remove('unknown'); }
+                    
+                    
+                    if (isPit) { cell.classList.add('hazard'); cell.innerText = '🕳️'; cell.classList.remove('unknown'); }
+                    if (isWumpus) { cell.classList.add('hazard'); cell.innerText = '👹'; cell.classList.remove('unknown'); }
+                    
+                   
+                    if (isAgent) { cell.classList.add('agent'); cell.innerText = (cell.innerText + ' 🤖').trim(); }
+
+                    grid.appendChild(cell);
+                }
+            }
+        }
+        
+        window.onload = startGame;
+    </script>
+</body>
+</html>
