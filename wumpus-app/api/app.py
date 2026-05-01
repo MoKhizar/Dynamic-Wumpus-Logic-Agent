@@ -61,8 +61,8 @@ class KnowledgeBase:
             
             clauses = clauses.union(new)
 
-
-app = Flask(__name__)
+import os
+app = Flask(__name__, template_folder=os.path.join(os.getcwd(), 'templates'))
 
 game_state = {}
 
